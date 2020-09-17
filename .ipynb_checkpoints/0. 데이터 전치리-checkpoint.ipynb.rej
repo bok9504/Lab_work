@@ -1,9 +1,0 @@
-diff a/.ipynb_checkpoints/0. 데이터 전치리-checkpoint.ipynb b/.ipynb_checkpoints/0. 데이터 전치리-checkpoint.ipynb	(rejected hunks)
-@@ -0,6 +0,7 @@
-  "cells": [
-   {
-    "cell_type": "code",
-+   "execution_count": 1,
-    "metadata": {},
-    "outputs": [],
-    "source": [
