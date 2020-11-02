@@ -20,6 +20,7 @@ from matplotlib import gridspec
 path = '../9.데이터/0.작업 데이터/0.전처리 데이터/'
 path_3d = '../9.데이터/0.작업 데이터/9.3D 그래프/'
 path_h = "../9.데이터/0.작업 데이터/2.사고 데이터/0.히트맵/"
+path_hm = "../9.데이터/0.작업 데이터/2.사고 데이터/1.사고_패턴_차이히트맵/"
 
 # In[21]:
 
@@ -156,32 +157,27 @@ def to_pivot_each_data(dataset, values):
 # In[24]:
 
 
-##  사고로 판단되는 데이터 리스트 및 날짜 리턴, 히트맵 출력 함수
+##  사고로 판단되는 히트맵 출력 함수
 #### 사고라고 판단되는 데이터의 리스트와 해당날짜를 리턴하고, 해당 데이터의 히트맵과 패턴데이터의 히트맵을 출력하는 함수
 #### 사고판단기준 : 속도 감소율이 30% 이상이며, 이 감소율이 30분 이상 지속되고, 그 영향이 하류부로 퍼질때 사고로 판단
-#### 코드의 한계 : 코드에서 사고로 출력기준은 패턴에 비해 30% 감소한 레이더가 6시퀀트 이상 있을때 사고로 판단
-####               1)지속기준으로 바꾸어 줘야함 2) 하류부로 전파가 되어야함
 
 def create_accident_list(dataset, values):
-    
-    fig = plt.figure(figsize=(21, 5)) 
-    gs = gridspec.GridSpec(1, 2)
-    
+
+    fig = plt.figure(figsize=(21, 12))
+    gs = gridspec.GridSpec(2, 2)
+
     RADR_list = dataset["레이더ID"].unique()
-    
+    accident_num = 0
+
     pivot_day_data = to_pivot_mean_data(dataset, values)
     pivot_eachday_data, day_data_date = to_pivot_each_data(dataset, values)
 
     for dayNum in range(7):
-        
+
         p_it = pivot_day_data[dayNum]
         c_it = pivot_eachday_data[dayNum]
         date_list = day_data_date[dayNum]
-        
-        accident_list = []
-        accident_list_name = []
-        accident_num = 0
-        
+
         for itm in date_list:
 
             each_date = c_it.loc[itm]
@@ -191,46 +187,42 @@ def create_accident_list(dataset, values):
             for i in range(1, 5):
 
                 for j in RADR_list:
+                    funcTest = test.loc[test[i, j]>0][i,j].index
+                    accident_point = contiueNum(funcTest.to_list())
 
-                    if len(test.loc[test[i, j]>0][i, j]) > 6:
+                    if len(accident_point) > 0:
 
-                        index_list = test.loc[test[i, j]>0][i, j].index
-                        radr_num = len(RADR_list)
-                        
-                        if i == 1:
-                            accident = each_date.iloc[(index_list[0] - 25):(index_list[0] +25), :radr_num]
-                        elif i == 2:
-                            accident = each_date.iloc[(index_list[0] - 25):(index_list[0] +25), radr_num:radr_num*2]
-                        elif i == 3:
-                            accident = each_date.iloc[(index_list[0] - 25):(index_list[0] +25), radr_num*2:radr_num*3]
-                        else:
-                            accident = each_date.iloc[(index_list[0] - 25):(index_list[0] +25), radr_num*3:]   
-                        try:
-                            pattern = p_it.loc[accident.index[0]:accident.index[49]][i]
-                        except: continue
-                        
-                        create_heatmap(fig, gs, accident, pattern, radr_num, itm, i, j, accident_num)                        
-                        
-                        accident_list.append(accident)
-                        accident_list_name.append(itm)
+                        for acc_indexNum in accident_point:
+                            radr_num = len(RADR_list)
 
-                        accident_num += 1
+                            if (acc_indexNum < 26)|(acc_indexNum >254):
+                                continue
 
-                    break
+                            accident = each_date.loc[chage_datetime(acc_indexNum - 25):chage_datetime(acc_indexNum +25), i]
 
-            
-    return accident_list, accident_list_name
+                            try:
+                                pattern = p_it.loc[accident.index[0]:accident.index[49]][i]
+                            except:
+                                pattern = p_it.loc[accident.index[0]:][i]
+
+                            accident = missing_precess(accident, radr_num)
+                            
+                            create_heatmap(fig, gs, accident, pattern, radr_num, itm, i, j, accident_num)                        
+                            create_heatmap_minus(fig, gs, accident, pattern, radr_num, itm, i, j, accident_num)                        
+
+                            accident_num += 1
 
 
 # In[25]:
 
 
 def create_heatmap(fig, gs, accident, pattern, radr_num, itm, i, j, accident_num):
-    plt.rcParams['figure.figsize'] = [12, 7]
+    plt.rcParams['figure.figsize'] = [12, 8]
     
     plt.subplot(gs[0])
     sns.heatmap(accident, yticklabels = radr_num, vmin=0, vmax=100)
     plt.title("{} {}차선 {} - accident#{}".format(itm, i, j,accident_num), fontsize=15)
+
     plt.subplot(gs[1])
     sns.heatmap(pattern, yticklabels = radr_num, vmin=0, vmax=100)
     plt.title("{} {}차선 {} - Pattern".format(itm, i, j), fontsize=15)
@@ -239,6 +231,19 @@ def create_heatmap(fig, gs, accident, pattern, radr_num, itm, i, j, accident_num
     plt.cla()
     plt.clf()
 
+def create_heatmap_minus(fig, gs, accident, pattern, radr_num, itm, i, j, accident_num):
+    plt.rcParams['figure.figsize'] = [12, 8]
+    
+    accident = pattern - accident
+
+    plt.subplot(gs[2])
+    sns.heatmap(accident, yticklabels = radr_num, vmin=0, vmax=50)
+    plt.title("{} {}차선 {} - accident#{}".format(itm, i, j,accident_num), fontsize=15)
+
+    fig.savefig(path_hm + "{} {}차선 {} - accident#{}".format(itm, i, j,accident_num) + ".jpg", dpi=400)
+    plt.cla()
+    plt.clf()
+    
 
 # In[26]:
 
@@ -359,3 +364,38 @@ def chage_datetime(dateNum):
             '23:00:00','23:05:00','23:10:00','23:15:00','23:20:00','23:25:00','23:30:00','23:35:00','23:40:00','23:45:00','23:50:00','23:55:00']
     dateStr = data[dateNum]
     return dateStr
+
+def missing_precess(input_data, radr_num):
+    if radr_num == 11:
+        data = input_data
+        filln1 = {'RADR12' : (data['RADR11'] + data['RADR13'])/2, 'RADR13' : (data['RADR12'] + data['RADR14'])/2,
+                  'RADR14' : (data['RADR13'] + data['RADR15'])/2, 'RADR15' : (data['RADR14'] + data['RADR16'])/2,
+                  'RADR16' : (data['RADR15'] + data['RADR17'])/2, 'RADR17' : (data['RADR16'] + data['RADR18'])/2,
+                  'RADR18' : (data['RADR17'] + data['RADR19'])/2, 'RADR19' : (data['RADR18'] + data['RADR20'])/2,
+                  'RADR20' : (data['RADR19'] + data['RADR21'])/2}
+        filln2 = {'RADR11' : data['RADR12'], 'RADR12' : data['RADR13'], 'RADR13' : data['RADR14'], 'RADR14' : data['RADR15'],
+                  'RADR15' : data['RADR16'], 'RADR16' : data['RADR17'], 'RADR17' : data['RADR18'], 'RADR18' : data['RADR19'],
+                  'RADR19' : data['RADR20'], 'RADR20' : data['RADR21']}
+        filln3 = {'RADR12' : data['RADR11'], 'RADR13' : data['RADR12'], 'RADR14' : data['RADR13'], 'RADR15' : data['RADR14'],
+                  'RADR16' : data['RADR15'], 'RADR17' : data['RADR16'], 'RADR18' : data['RADR17'], 'RADR19' : data['RADR18'],
+                  'RADR20' : data['RADR19'], 'RADR21' : data['RADR20']}
+    else:
+        data = input_data
+        filln1 = {'RADR32' : (data['RADR31'] + data['RADR33'])/2, 'RADR33' : (data['RADR32'] + data['RADR34'])/2,
+                  'RADR34' : (data['RADR33'] + data['RADR35'])/2, 'RADR35' : (data['RADR34'] + data['RADR36'])/2,
+                  'RADR36' : (data['RADR35'] + data['RADR37'])/2, 'RADR37' : (data['RADR36'] + data['RADR38'])/2,
+                  'RADR38' : (data['RADR37'] + data['RADR39'])/2, 'RADR39' : (data['RADR38'] + data['RADR40'])/2,
+                  'RADR40' : (data['RADR39'] + data['RADR41'])/2, 'RADR41' : (data['RADR40'] + data['RADR42'])/2}
+        filln2 = {'RADR31' : data['RADR32'], 'RADR32' : data['RADR33'], 'RADR33' : data['RADR34'], 'RADR34' : data['RADR35'],
+                  'RADR35' : data['RADR36'], 'RADR36' : data['RADR37'], 'RADR37' : data['RADR38'], 'RADR38' : data['RADR39'],
+                  'RADR39' : data['RADR40'], 'RADR40' : data['RADR41'], 'RADR41' : data['RADR42']}
+        filln3 = {'RADR32' : data['RADR31'], 'RADR33' : data['RADR32'], 'RADR34' : data['RADR33'], 'RADR35' : data['RADR34'],
+                  'RADR36' : data['RADR35'], 'RADR37' : data['RADR36'], 'RADR38' : data['RADR37'], 'RADR39' : data['RADR38'],
+                  'RADR40' : data['RADR39'], 'RADR41' : data['RADR40'], 'RADR42' : data['RADR41']}
+    input_data = input_data.fillna(filln1)
+    input_data = input_data.fillna(filln1)
+    input_data = input_data.fillna(filln1)
+    input_data = input_data.fillna(method = 'ffill')
+    input_data = input_data.fillna(method = 'bfill')
+    
+    return input_data
