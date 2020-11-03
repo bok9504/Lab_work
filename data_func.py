@@ -24,6 +24,19 @@ path_hm = "../9.데이터/0.작업 데이터/2.사고 데이터/1.사고_패턴_
 
 # In[21]:
 
+# 공휴일 제거 함수
+def holiday_remove(dataset):
+    holiday_list = ['2018-02-15','2018-02-16','2018-02-17','2018-03-01','2018-05-05','2018-05-22','2018-06-06','2018-08-15',
+                   '2018-09-23','2018-09-24','2018-09-25','2018-10-03','2018-10-06','2018-10-09','2018-10-27','2018-12-24','2018-12-25',
+                   '2019-01-01','2019-02-04','2019-02-05','2019-02-06','2019-03-01','2019-05-05','2019-05-12','2019-06-06',
+                   '2019-08-15','2019-09-12','2019-09-13','2019-09-14','2019-10-03','2019-10-09','2019-11-02','2019-12-24','2019-12-25',
+                   '2020-01-01','2020-01-24','2020-01-25','2020-01-26','2020-03-01']
+    for i in holiday_list:
+        dataset = dataset[dataset['통계날짜'] != i]
+    
+    dataset = dataset.reset_index()
+    return dataset
+
 
 ##  요일별 평균 속도 및 교통량 피벗 테이블 생성
 ####  속도 교통량을 함께 가지는 피벗테이블을 만드는 코드
@@ -169,6 +182,7 @@ def create_accident_list(dataset, values):
     RADR_list = dataset["레이더ID"].unique()
     accident_num = 0
 
+    dataset = holiday_remove(dataset)
     pivot_day_data = to_pivot_mean_data(dataset, values)
     pivot_eachday_data, day_data_date = to_pivot_each_data(dataset, values)
 
@@ -196,19 +210,16 @@ def create_accident_list(dataset, values):
                             radr_num = len(RADR_list)
 
                             if (acc_indexNum < 26)|(acc_indexNum >254):
-                                continue
+                                continue 
 
                             accident = each_date.loc[chage_datetime(acc_indexNum - 25):chage_datetime(acc_indexNum +25), i]
-
-                            try:
-                                pattern = p_it.loc[accident.index[0]:accident.index[49]][i]
-                            except:
-                                pattern = p_it.loc[accident.index[0]:][i]
+                            pattern = p_it.loc[accident.index[0]:accident.index[-1]][i]
 
                             accident = missing_precess(accident, radr_num)
-                            
-                            create_heatmap(fig, gs, accident, pattern, radr_num, itm, i, j, accident_num)                        
-                            create_heatmap_minus(fig, gs, accident, pattern, radr_num, itm, i, j, accident_num)                        
+
+                            if accident.isnull().sum().sum() == 0:
+                                create_heatmap(fig, gs, accident, pattern, radr_num, itm, i, j, accident_num)                        
+                                create_heatmap_minus(fig, gs, accident, pattern, radr_num, itm, i, j, accident_num)                        
 
                             accident_num += 1
 
@@ -310,28 +321,37 @@ def create_3D_Graph(dataset, line, values):
         plt.colorbar(contour)
         plt.show()
         
-# 5개 이상 숫자가 연속될 시 연속의 시작이 되는 숫자를 리스트에 넣어서 리스트를 리턴
+# 5개 이상 숫자가 연속될 시 연속 구간의 중간 숫자를 리스트에 넣어서 리스트를 리턴
+
 def contiueNum(queue): 
     
     packet = []
     turnNum = 0
+    accident = 0
     
     if len(queue) == 0:
         return packet
 
-    v = queue.pop(0)    
+    v = queue.pop(0)
+    
     while len(queue)>0:
         vv = queue.pop(0)
-
+        
         if v+1 == vv:
             v = vv
             turnNum = turnNum + 1
             if turnNum > 3:
-                v = v - 4
-                packet.append(v)
+                accident = 1
+            
         else:
-            turnNum = 0
-            v = vv
+            if accident == 0:
+                v = vv
+                turnNum = 0
+            else:
+                packet.append(v - int(turnNum/2))
+                v = vv
+                turnNum = 0
+                accident = 0
             
     return packet
 
@@ -365,9 +385,8 @@ def chage_datetime(dateNum):
     dateStr = data[dateNum]
     return dateStr
 
-def missing_precess(input_data, radr_num):
+def missing_precess(data, radr_num):
     if radr_num == 11:
-        data = input_data
         filln1 = {'RADR12' : (data['RADR11'] + data['RADR13'])/2, 'RADR13' : (data['RADR12'] + data['RADR14'])/2,
                   'RADR14' : (data['RADR13'] + data['RADR15'])/2, 'RADR15' : (data['RADR14'] + data['RADR16'])/2,
                   'RADR16' : (data['RADR15'] + data['RADR17'])/2, 'RADR17' : (data['RADR16'] + data['RADR18'])/2,
@@ -380,7 +399,6 @@ def missing_precess(input_data, radr_num):
                   'RADR16' : data['RADR15'], 'RADR17' : data['RADR16'], 'RADR18' : data['RADR17'], 'RADR19' : data['RADR18'],
                   'RADR20' : data['RADR19'], 'RADR21' : data['RADR20']}
     else:
-        data = input_data
         filln1 = {'RADR32' : (data['RADR31'] + data['RADR33'])/2, 'RADR33' : (data['RADR32'] + data['RADR34'])/2,
                   'RADR34' : (data['RADR33'] + data['RADR35'])/2, 'RADR35' : (data['RADR34'] + data['RADR36'])/2,
                   'RADR36' : (data['RADR35'] + data['RADR37'])/2, 'RADR37' : (data['RADR36'] + data['RADR38'])/2,
@@ -392,10 +410,10 @@ def missing_precess(input_data, radr_num):
         filln3 = {'RADR32' : data['RADR31'], 'RADR33' : data['RADR32'], 'RADR34' : data['RADR33'], 'RADR35' : data['RADR34'],
                   'RADR36' : data['RADR35'], 'RADR37' : data['RADR36'], 'RADR38' : data['RADR37'], 'RADR39' : data['RADR38'],
                   'RADR40' : data['RADR39'], 'RADR41' : data['RADR40'], 'RADR42' : data['RADR41']}
-    input_data = input_data.fillna(filln1)
-    input_data = input_data.fillna(filln1)
-    input_data = input_data.fillna(filln1)
-    input_data = input_data.fillna(method = 'ffill')
-    input_data = input_data.fillna(method = 'bfill')
+    data = data.fillna(filln1)
+    data = data.fillna(filln1)
+    data = data.fillna(filln1)
+    data = data.fillna(method = 'ffill', limit=1)
+    data = data.fillna(method = 'bfill', limit=1)
     
-    return input_data
+    return data
