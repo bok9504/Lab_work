@@ -232,13 +232,13 @@ def create_heatmap(fig, gs, accident, pattern, radr_num, itm, i, j, accident_num
     
     plt.subplot(gs[0])
     sns.heatmap(accident, yticklabels = radr_num, vmin=0, vmax=100)
-    plt.title("{} {}차선 {} - accident#{}".format(itm, i, j,accident_num), fontsize=15)
+    plt.title("{} Line{} {} - accident#{}".format(itm, i, j,accident_num), fontsize=15)
 
     plt.subplot(gs[1])
     sns.heatmap(pattern, yticklabels = radr_num, vmin=0, vmax=100)
-    plt.title("{} {}차선 {} - Pattern".format(itm, i, j), fontsize=15)
+    plt.title("{} Line{} {} - Pattern".format(itm, i, j), fontsize=15)
 
-    fig.savefig(path_h + "{} {}차선 {} - accident#{}".format(itm, i, j,accident_num) + ".jpg", dpi=400)
+    fig.savefig(path_h + "{} Line{} {} - accident#{}".format(itm, i, j,accident_num) + ".jpg", dpi=400)
     plt.cla()
     plt.clf()
 
@@ -249,9 +249,9 @@ def create_heatmap_minus(fig, gs, accident, pattern, radr_num, itm, i, j, accide
 
     plt.subplot(gs[2])
     sns.heatmap(accident, yticklabels = radr_num, vmin=0, vmax=50)
-    plt.title("{} {}차선 {} - accident#{}".format(itm, i, j,accident_num), fontsize=15)
+    plt.title("{} Line{} {} - accident#{}".format(itm, i, j,accident_num), fontsize=15)
 
-    fig.savefig(path_hm + "{} {}차선 {} - accident#{}".format(itm, i, j,accident_num) + ".jpg", dpi=400)
+    fig.savefig(path_hm + "{} Line{} {} - accident#{}".format(itm, i, j,accident_num) + ".jpg", dpi=400)
     plt.cla()
     plt.clf()
     
