@@ -174,7 +174,7 @@ def to_pivot_each_data(dataset, values):
 #### 사고라고 판단되는 데이터의 리스트와 해당날짜를 리턴하고, 해당 데이터의 히트맵과 패턴데이터의 히트맵을 출력하는 함수
 #### 사고판단기준 : 속도 감소율이 30% 이상이며, 이 감소율이 30분 이상 지속되고, 그 영향이 하류부로 퍼질때 사고로 판단
 
-def create_accident_list(dataset, values):
+def create_accident_heatmap(dataset, values):
 
     fig = plt.figure(figsize=(21, 12))
     gs = gridspec.GridSpec(2, 2)
@@ -223,9 +223,70 @@ def create_accident_list(dataset, values):
 
                             accident_num += 1
 
+def create_accident_list(dataset, values):
+
+    fig = plt.figure(figsize=(21, 12))
+    gs = gridspec.GridSpec(2, 2)
+
+    RADR_list = dataset["레이더ID"].unique()
+    accident_num = 0
+    setNum = 0
+
+    dataset = holiday_remove(dataset)
+    pivot_day_data = to_pivot_mean_data(dataset, values)
+    pivot_eachday_data, day_data_date = to_pivot_each_data(dataset, values)
+
+    for dayNum in range(7):
+
+        p_it = pivot_day_data[dayNum]
+        c_it = pivot_eachday_data[dayNum]
+        date_list = day_data_date[dayNum]
+
+        for itm in date_list:
+
+            each_date = c_it.loc[itm]
+            test = (p_it - each_date) - (p_it * 0.3)
+            test = test.reset_index()
+
+            for i in range(1, 5):
+
+                for j in RADR_list:
+                    funcTest = test.loc[test[i, j]>0][i,j].index
+                    accident_point = contiueNum(funcTest.to_list())
+
+                    if len(accident_point) > 0:
+                        for acc_indexNum in accident_point:
+                            radr_num = len(RADR_list)
+
+                            if (acc_indexNum < 26)|(acc_indexNum >254):
+                                continue 
+
+                            accident = each_date.loc[chage_datetime(acc_indexNum - 25):chage_datetime(acc_indexNum +25), i]
+                            pattern = p_it.loc[accident.index[0]:accident.index[-1]][i]
+
+                            accident = missing_precess(accident, radr_num)
+                            
+                            if accident.isnull().sum().sum() == 0:
+                                if setNum == 0:
+                                    accData = create_data(fig, gs, accident, pattern, radr_num, itm, i, j, accident_num)
+                                    setNum += 1
+                                else:
+                                    temp = create_data(fig, gs, accident, pattern, radr_num, itm, i, j, accident_num)
+                                    accData = pd.concat([accData, temp], axis = 0)
+
+                            accident_num += 1
+    return accData
+
 
 # In[25]:
-
+def create_data(fig, gs, accident, pattern, radr_num, itm, i, j, accident_num):
+    result = pattern - accident
+    result[result < 0] = 0
+    result = np.array(result)
+    result = np.ravel(result)
+    result = pd.DataFrame(data=result, columns=["{} Line{} {} - accident#{}".format(itm, i, j,accident_num)])
+    result = result.T
+    return result
 
 def create_heatmap(fig, gs, accident, pattern, radr_num, itm, i, j, accident_num):
     plt.rcParams['figure.figsize'] = [12, 8]
