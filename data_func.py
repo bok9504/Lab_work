@@ -17,10 +17,10 @@ import matplotlib.font_manager as fm
 from matplotlib import gridspec
 
 
-path = '../9.데이터/0.작업 데이터/0.전처리 데이터/'
-path_3d = '../9.데이터/0.작업 데이터/9.3D 그래프/'
-path_h = "../9.데이터/0.작업 데이터/2.사고 데이터/0.히트맵/"
-path_hm = "../9.데이터/0.작업 데이터/2.사고 데이터/1.사고_패턴_차이히트맵/"
+path = '../9.data/0.work_data/0.전처리 데이터/'
+path_3d = '../9.data/0.work_data/9.3D 그래프/'
+path_AL = '../9.data/0.work_data/3.Accident_list/'
+path_h = "../9.data/0.work_data/2.heatmap/"
 
 # In[21]:
 
@@ -202,7 +202,7 @@ def create_accident_heatmap(dataset, values):
 
                 for j in RADR_list:
                     funcTest = test.loc[test[i, j]>0][i,j].index
-                    accident_point = contiueNum(funcTest.to_list())
+                    accident_point = contiueNum(funcTest.to_list(), 5)
 
                     if len(accident_point) > 0:
 
@@ -222,6 +222,54 @@ def create_accident_heatmap(dataset, values):
                                 create_heatmap_minus(fig, gs, accident, pattern, radr_num, itm, i, j, accident_num)                        
 
                             accident_num += 1
+
+def create_nonaccident_heatmap(dataset, values):
+
+    fig = plt.figure(figsize=(21, 12))
+    gs = gridspec.GridSpec(2, 2)
+
+    RADR_list = dataset["레이더ID"].unique()
+    nonaccident_num = 0
+
+    dataset = holiday_remove(dataset)
+    pivot_day_data = to_pivot_mean_data(dataset, values)
+    pivot_eachday_data, day_data_date = to_pivot_each_data(dataset, values)
+
+    for dayNum in range(7):
+
+        p_it = pivot_day_data[dayNum]
+        c_it = pivot_eachday_data[dayNum]
+        date_list = day_data_date[dayNum]
+
+        for itm in date_list:
+
+            each_date = c_it.loc[itm]
+            test = (p_it - each_date) - (p_it * 0.3)
+            test = test.reset_index()
+
+            for i in range(1, 5):
+
+                for j in RADR_list:
+                    funcTest = test.loc[test[i, j]<0][i,j].index
+                    nonaccident_point = contiueNum(funcTest.to_list(), 51)
+
+                    if len(nonaccident_point) > 0:
+                        for nonacc_indexNum in nonaccident_point:
+                            radr_num = len(RADR_list)
+
+                            if (nonacc_indexNum < 26)|(nonacc_indexNum >254):
+                                continue 
+
+                            nonaccident = each_date.loc[chage_datetime(nonacc_indexNum - 25):chage_datetime(nonacc_indexNum +25), i]
+                            pattern = p_it.loc[nonaccident.index[0]:nonaccident.index[-1]][i]
+
+                            nonaccident = missing_precess(nonaccident, radr_num)
+
+                            if nonaccident.isnull().sum().sum() == 0:
+                                create_heatmap(fig, gs, nonaccident, pattern, radr_num, itm, i, j, nonaccident_num, isAccident = False)                        
+                                create_heatmap_minus(fig, gs, nonaccident, pattern, radr_num, itm, i, j, nonaccident_num, isAccident = False)                        
+
+                            nonaccident_num += 1
 
 def create_accident_list(dataset, values):
 
@@ -252,7 +300,7 @@ def create_accident_list(dataset, values):
 
                 for j in RADR_list:
                     funcTest = test.loc[test[i, j]>0][i,j].index
-                    accident_point = contiueNum(funcTest.to_list())
+                    accident_point = contiueNum(funcTest.to_list(), 5)
 
                     if len(accident_point) > 0:
                         for acc_indexNum in accident_point:
@@ -277,42 +325,108 @@ def create_accident_list(dataset, values):
                             accident_num += 1
     return accData
 
+def create_nonaccident_list(dataset, values):
+
+    fig = plt.figure(figsize=(21, 12))
+    gs = gridspec.GridSpec(2, 2)
+
+    RADR_list = dataset["레이더ID"].unique()
+    nonaccident_num = 0
+    setNum = 0
+
+    dataset = holiday_remove(dataset)
+    pivot_day_data = to_pivot_mean_data(dataset, values)
+    pivot_eachday_data, day_data_date = to_pivot_each_data(dataset, values)
+
+    for dayNum in range(7):
+
+        p_it = pivot_day_data[dayNum]
+        c_it = pivot_eachday_data[dayNum]
+        date_list = day_data_date[dayNum]
+
+        for itm in date_list:
+
+            each_date = c_it.loc[itm]
+            test = (p_it - each_date) - (p_it * 0.3)
+            test = test.reset_index()
+
+            for i in range(1, 5):
+
+                for j in RADR_list:
+                    funcTest = test.loc[test[i, j]<0][i,j].index
+                    nonaccident_point = contiueNum(funcTest.to_list(), 51)
+
+                    if len(nonaccident_point) > 0:
+                        for nonacc_indexNum in nonaccident_point:
+                            radr_num = len(RADR_list)
+
+                            if (nonacc_indexNum < 26)|(nonacc_indexNum >254):
+                                continue 
+
+                            nonaccident = each_date.loc[chage_datetime(nonacc_indexNum - 25):chage_datetime(nonacc_indexNum +25), i]
+                            pattern = p_it.loc[nonaccident.index[0]:nonaccident.index[-1]][i]
+
+                            nonaccident = missing_precess(nonaccident, radr_num)
+                            
+                            if nonaccident.isnull().sum().sum() == 0:
+                                if setNum == 0:
+                                    nonaccData = create_data(fig, gs, nonaccident, pattern, radr_num, itm, i, j, nonaccident_num, isAccident = False)
+                                    setNum += 1
+                                else:
+                                    temp = create_data(fig, gs, nonaccident, pattern, radr_num, itm, i, j, nonaccident_num, isAccident = False)
+                                    nonaccData = pd.concat([nonaccData, temp], axis = 0)
+
+                            nonaccident_num += 1
+    return nonaccData
 
 # In[25]:
-def create_data(fig, gs, accident, pattern, radr_num, itm, i, j, accident_num):
+def create_data(fig, gs, accident, pattern, radr_num, itm, i, j, accident_num, isAccident = True):
     result = pattern - accident
     result[result < 0] = 0
     result = np.array(result)
     result = np.ravel(result)
-    result = pd.DataFrame(data=result, columns=["{} Line{} {} - accident#{}".format(itm, i, j,accident_num)])
+    if isAccident:
+        result = pd.DataFrame(data=result, columns=["{} Line{} {} - accident#{}".format(itm, i, j,accident_num)])
+    else:
+        result = pd.DataFrame(data=result, columns=["{} Line{} {} - nonaccident#{}".format(itm, i, j,accident_num)])
     result = result.T
     return result
 
-def create_heatmap(fig, gs, accident, pattern, radr_num, itm, i, j, accident_num):
+def create_heatmap(fig, gs, accident, pattern, radr_num, itm, i, j, accident_num, isAccident = True):
     plt.rcParams['figure.figsize'] = [12, 8]
     
     plt.subplot(gs[0])
     sns.heatmap(accident, yticklabels = radr_num, vmin=0, vmax=100)
-    plt.title("{} Line{} {} - accident#{}".format(itm, i, j,accident_num), fontsize=15)
+    if isAccident:
+        plt.title("{} Line{} {} - accident#{}".format(itm, i, j,accident_num), fontsize=15)
+    else:
+        plt.title("{} Line{} {} - nonaccident#{}".format(itm, i, j,accident_num), fontsize=15)
 
     plt.subplot(gs[1])
     sns.heatmap(pattern, yticklabels = radr_num, vmin=0, vmax=100)
     plt.title("{} Line{} {} - Pattern".format(itm, i, j), fontsize=15)
 
-    fig.savefig(path_h + "{} Line{} {} - accident#{}".format(itm, i, j,accident_num) + ".jpg", dpi=400)
+    if isAccident:
+        fig.savefig(path_h + "0.accident/0.히트맵/" + "{} Line{} {} - accident#{}".format(itm, i, j,accident_num) + ".jpg", dpi=400)
+    else:
+        fig.savefig(path_h + "1.nonaccident/0.히트맵/" + "{} Line{} {} - nonaccident#{}".format(itm, i, j,accident_num) + ".jpg", dpi=400)
     plt.cla()
     plt.clf()
 
-def create_heatmap_minus(fig, gs, accident, pattern, radr_num, itm, i, j, accident_num):
+def create_heatmap_minus(fig, gs, accident, pattern, radr_num, itm, i, j, accident_num, isAccident = True):
     plt.rcParams['figure.figsize'] = [12, 8]
     
     accident = pattern - accident
 
     plt.subplot(gs[2])
     sns.heatmap(accident, yticklabels = radr_num, vmin=0, vmax=50)
-    plt.title("{} Line{} {} - accident#{}".format(itm, i, j,accident_num), fontsize=15)
+    if isAccident:
+        plt.title("{} Line{} {} - accident#{}".format(itm, i, j,accident_num), fontsize=15)
+        fig.savefig(path_h + "0.accident/1.사고_패턴_차이히트맵/" + "{} Line{} {} - accident#{}".format(itm, i, j,accident_num) + ".jpg", dpi=400)
+    else:
+        plt.title("{} Line{} {} - nonaccident#{}".format(itm, i, j,accident_num), fontsize=15)
+        fig.savefig(path_h + "1.nonaccident/1.사고_패턴_차이히트맵/" + "{} Line{} {} - nonaccident#{}".format(itm, i, j,accident_num) + ".jpg", dpi=400)
 
-    fig.savefig(path_hm + "{} Line{} {} - accident#{}".format(itm, i, j,accident_num) + ".jpg", dpi=400)
     plt.cla()
     plt.clf()
     
@@ -384,7 +498,7 @@ def create_3D_Graph(dataset, line, values):
         
 # 5개 이상 숫자가 연속될 시 연속 구간의 중간 숫자를 리스트에 넣어서 리스트를 리턴
 
-def contiueNum(queue): 
+def contiueNum(queue, conNum): 
     
     packet = []
     turnNum = 0
@@ -401,7 +515,7 @@ def contiueNum(queue):
         if v+1 == vv:
             v = vv
             turnNum = turnNum + 1
-            if turnNum > 3:
+            if turnNum > conNum -2:
                 accident = 1
             
         else:
