@@ -435,6 +435,63 @@ def create_accident_pattern_list(dataset, values):
 
                             accident_num += 1
     return accList, pattList
+
+    #사고 + 패턴 데이터 리스트
+def create_nonaccident_pattern_list(dataset, values):
+
+    fig = plt.figure(figsize=(21, 12))
+    gs = gridspec.GridSpec(2, 2)
+
+    RADR_list = dataset["레이더ID"].unique()
+    accident_num = 0
+    setNum = 0
+
+    dataset = holiday_remove(dataset)
+    pivot_day_data = to_pivot_mean_data(dataset, values)
+    pivot_eachday_data, day_data_date = to_pivot_each_data(dataset, values)
+
+    for dayNum in range(7):
+
+        p_it = pivot_day_data[dayNum]
+        c_it = pivot_eachday_data[dayNum]
+        date_list = day_data_date[dayNum]
+
+        for itm in date_list:
+
+            each_date = c_it.loc[itm]
+            test = (p_it - each_date) - (p_it * 0.3)
+            test = test.reset_index()
+
+            for i in range(1, 5):
+
+                for j in RADR_list:
+                    funcTest = test.loc[test[i, j]<0][i,j].index
+                    accident_point = contiueNum(funcTest.to_list(), 51)
+
+                    if len(accident_point) > 0:
+                        for acc_indexNum in accident_point:
+                            radr_num = len(RADR_list)
+
+                            if (acc_indexNum < 26)|(acc_indexNum >254):
+                                continue 
+
+                            accident = each_date.loc[chage_datetime(acc_indexNum - 25):chage_datetime(acc_indexNum +25), i]
+                            pattern = p_it.loc[accident.index[0]:accident.index[-1]][i]
+
+                            accident = missing_precess(accident, radr_num)
+                            
+                            if accident.isnull().sum().sum() == 0:
+                                if setNum == 0:
+                                    accList, pattList = create_data(fig, gs, accident, pattern, radr_num, itm, i, j, accident_num, isAccident = False, isDiff = False)
+                                    setNum += 1
+                                else:
+                                    temp1, temp2 = create_data(fig, gs, accident, pattern, radr_num, itm, i, j, accident_num, isAccident = False, isDiff = False)
+
+                                    accList = pd.concat([accList, temp1], axis = 0)
+                                    pattList = pd.concat([pattList, temp2], axis = 0)
+
+                            accident_num += 1
+    return accList, pattList
 # In[25]:
 def create_data(fig, gs, accident, pattern, radr_num, itm, i, j, accident_num, isAccident = True, isDiff = True):
     if isDiff:
